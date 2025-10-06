@@ -53,8 +53,6 @@ class UnixShellEmulator:
 
     def cmd_ls(self, args):
         """Команда ls - вывод информации о файлах"""
-        print(f"Команда: ls")
-        print(f"Аргументы: {args}")
         target_dir = self.current_dir
         if args:
             target_dir = os.path.join(self.current_dir, args[0])
@@ -78,8 +76,6 @@ class UnixShellEmulator:
 
     def cmd_cd(self, args):
         """Команда cd - смена директории"""
-        print(f"Команда: cd")
-        print(f"Аргументы: {args}")
         new_dir = self.current_dir
         if not args:
             # cd без аргументов - переход в домашнюю директорию
@@ -128,32 +124,22 @@ class UnixShellEmulator:
 
     def cmd_pwd(self, args):
         """Команда pwd - вывод текущей директории"""
-        print(f"Команда: pwd")
-        print(f"Аргументы: {args}")
         print(self.current_dir)
 
     def cmd_echo(self, args):
         """Команда echo - вывод текста"""
-        print(f"Команда: echo")
-        print(f"Аргументы: {args}")
         print(' '.join(args))
 
     def cmd_whoami(self, args):
         """Команда whoami - вывод имени пользователя"""
-        print(f"Команда: whoami")
-        print(f"Аргументы: {args}")
         print(self.username)
 
     def cmd_hostname(self, args):
         """Команда hostname - вывод имени хоста"""
-        print(f"Команда: hostname")
-        print(f"Аргументы: {args}")
         print(self.hostname)
 
     def cmd_exit(self, args):
         """Команда exit - выход из эмулятора"""
-        print(f"Команда: exit")
-        print(f"Аргументы: {args}")
         print("Выход из эмулятора командной строки")
         exit(0)
 
@@ -167,9 +153,12 @@ class UnixShellEmulator:
     def run_startup_script(self):
         """Выполняет стартовый скрипт если он указан"""
         for com in self.startup_script:
-            print(self.get_prompt())
+            print(self.get_prompt(), end='')
             com, args = self.parse_input(com)
+            # print(com, *args)
+            print(f"\033[92m{' '.join([com, *args])}\033[0m")
             self.execute_command(com, args)
+            print()
 
     def run(self):
         """Основной цикл REPL (Read-Eval-Print Loop)"""
@@ -207,6 +196,7 @@ def main(vfs_path=os.getcwd()):
     # Набор команд для тестирования и демонстрации
     demo_commands = [
         "echo === ДЕМОНСТРАЦИЯ РАБОТЫ ЭМУЛЯТОРА ===",
+        'ppw',
         "pwd",
         "whoami",
         "hostname",
