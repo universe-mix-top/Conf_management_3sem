@@ -38,7 +38,7 @@ class UnixShellEmulator:
     def parse_input(self, user_input):
         """Парсит ввод пользователя на команду и аргументы"""
         try:
-            parts = user_input.strip(' ')
+            parts = user_input.strip().split(' ')
             if not parts or not parts[0]:
                 return None, []
             command = parts[0]
@@ -204,14 +204,6 @@ class UnixShellEmulator:
 
 def main(vfs_path=os.getcwd()):
     """Главная функция приложения"""
-
-    # Отладочный вывод параметров
-    print("=== ОТЛАДОЧНЫЙ ВЫВОД ПАРАМЕТРОВ ===")
-    print(f"VFS путь: {vfs_path}")
-    print(f"Текущая директория: {os.getcwd()}")
-    print("=" * 40)
-    print()
-
     # Набор команд для тестирования и демонстрации
     demo_commands = [
         "echo === ДЕМОНСТРАЦИЯ РАБОТЫ ЭМУЛЯТОРА ===",
