@@ -84,26 +84,16 @@ class UnixShellEmulator:
             os.chdir(new_dir)
 
         current = args[0]
-        if current == "~":
+        if "~" in current:
             new_dir = os.path.expanduser("~")
         elif current == "-":
             new_dir = os.path.dirname(current)
-        elif current[:2] == '..':
-            while True:
-                if current[:2] == '..':
-                    current = current[1:]
-                    new_dir = os.path.dirname(current)
-                    continue
-                current = current[1:]
-                break
-            current = current[1:]
-            new_dir = os.path.join(new_dir, current)
-        elif current[0] == r'\\'[0]:
-            new_dir = os.path.join(current)
         else:
-            if current[:2] == r'.\\'[:2]: current = current[2:]
-            new_dir = os.path.join(new_dir, current)
-        new_dir = os.path.normpath(new_dir)
+            current = os.path.normpath(current)
+            if os.path.isabs(current):
+                new_dir = current
+            else:
+                new_dir = os.path.join(new_dir, current)
 
         try:
             new_dir = os.path.abspath(new_dir)
