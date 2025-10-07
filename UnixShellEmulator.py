@@ -90,7 +90,7 @@ class UnixShellEmulator:
                 for item in items:
                     item_path = os.path.join(target_dir, item)
                     if os.path.isdir(item_path):
-                        print(f"\033[94m{item}/\033[0m")
+                        print(f"\033[93m{item}/\033[0m")
                     else:
                         print(item)
 

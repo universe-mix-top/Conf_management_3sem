@@ -1,0 +1,58 @@
+# Комплексный тест всех команд эмулятора
+echo === НАЧАЛО ТЕСТИРОВАНИЯ ===
+
+# Базовые команды
+whoami
+hostname
+echo Тестирование базовых команд
+
+# Тест реальной файловой системы
+pwd
+ls
+cd /tmp
+pwd
+ls
+cd ~
+pwd
+
+# Тест VFS
+echo --- ПЕРЕХОД В РЕЖИМ VFS ---
+vfs status
+vfs on
+vfs status
+
+# Навигация по VFS
+pwd
+ls
+ls /
+cd /home
+pwd
+ls
+cd user/documents
+pwd
+ls
+
+# Работа с файлами в VFS
+cat readme.txt
+cd /etc
+cat config.conf
+cd /bin
+ls
+cat ls
+
+# Тест ошибок в VFS
+echo --- ТЕСТИРОВАНИЕ ОШИБОК ---
+cd /nonexistent_directory
+cat /unknown_file.txt
+ls /invalid/path
+
+# Возврат к реальной ФС
+echo --- ВОЗВРАТ К РЕАЛЬНОЙ ФС ---
+vfs off
+pwd
+ls
+
+# Финальные команды
+echo === ТЕСТИРОВАНИЕ ЗАВЕРШЕНО ===
+echo Все команды выполнены успешно!
+exit
