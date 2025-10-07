@@ -4,7 +4,10 @@ import zipfile
 
 
 class VirtualFileSystem:
+    """Виртуальная файловая система на основе ZIP-архива"""
+
     def __init__(self, vfs_path=None):
+        """Инициализация VFS: загружает из архива или создает по умолчанию"""
         self.vfs_path = vfs_path
         self.filesystem = {}
         self.current_vfs_dir = "/"
@@ -62,7 +65,7 @@ class VirtualFileSystem:
             }
 
     def load_vfs(self, vfs_path):
-        """Загружает VFS из ZIP-архива"""
+        """Загружает структуру VFS из ZIP-архива в память"""
         try:
             if not zipfile.is_zipfile(vfs_path):
                 raise ValueError("Файл не является ZIP-архивом")
@@ -116,7 +119,8 @@ class VirtualFileSystem:
             }
 
     def resolve_path(self, path):
-        """Разрешает путь в VFS"""
+        """Преобразует путь в указатель на содержимое директории в VFS"""
+        path = os.path.normpath(path).replace("\\", "/")
         if path.startswith("/"):
             current_dir = self.filesystem["/"]["content"]
             path_parts = path[1:].split("/")
@@ -124,26 +128,32 @@ class VirtualFileSystem:
             current_dir = self.get_current_dir_content()
             path_parts = path.split("/")
 
+
         for part in path_parts:
             if not part or part == ".":
                 continue
-            elif part == "..":
-                # Для простоты возвращаемся к корню
-                current_dir = self.filesystem["/"]["content"]
+            elif ".." in part:
+                if ".." in os.path.normpath(os.path.join(self.current_vfs_dir, path)):  # Проверка на выход из корнивой директории
+                    print('Путь выходит за пределы корневой директории')
+                    return None
+
+                current_vfs_dir = self.current_vfs_dir
+                for step in range(len(path_parts) - 1): current_vfs_dir = os.path.dirname(current_vfs_dir)
+
+                current_dir = self.resolve_path(current_vfs_dir)
+            elif part in current_dir and current_dir[part]["type"] == "directory":
+                current_dir = current_dir[part]["content"]
             else:
-                if part in current_dir and current_dir[part]["type"] == "directory":
-                    current_dir = current_dir[part]["content"]
-                else:
-                    return None  # Путь не найден
+                return None  # Путь не найден
 
         return current_dir
 
     def get_current_dir_content(self):
-        """Возвращает содержимое текущей директории VFS"""
+        """Возвращает содержимое текущей рабочей директории VFS"""
         return self.resolve_path(self.current_vfs_dir)
 
-    def list_directory(self, path="."):
-        """Список содержимого директории в VFS"""
+    def list_directory(self, path=".") -> None|list[list[str, str], ...]:
+        """Возвращает список файлов и папок в указанной директории VFS"""
         if path == ".":
             dir_content = self.get_current_dir_content()
         else:
@@ -158,7 +168,7 @@ class VirtualFileSystem:
         return items
 
     def change_directory(self, path):
-        """Смена директории в VFS"""
+        """Изменяет текущую рабочую директорию в VFS"""
         if path == "/":
             self.current_vfs_dir = "/"
             return True
@@ -180,17 +190,15 @@ class VirtualFileSystem:
         return False
 
     def read_file(self, path):
-        """Чтение файла из VFS"""
+        """Читает и возвращает содержимое файла из VFS"""
         if path.startswith("/"):
-            dir_path = "/".join(path.split("/")[:-1])
-            filename = path.split("/")[-1]
-            dir_content = self.resolve_path(dir_path)
+            dir_path = os.path.dirname(path).replace("\\", "/")
         else:
             dir_path = os.path.join(self.current_vfs_dir, os.path.dirname(path)).replace("\\", "/")
-            filename = os.path.basename(path)
-            dir_content = self.resolve_path(dir_path)
+
+        filename = os.path.basename(path)
+        dir_content = self.resolve_path(dir_path)
 
         if dir_content and filename in dir_content and dir_content[filename]["type"] == "file":
             return dir_content[filename]["content"]
         return None
-

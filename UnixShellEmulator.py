@@ -37,13 +37,13 @@ class UnixShellEmulator:
             else:
                 display_dir = display_dir.rstrip("/")
             return f"[VFS]{self.username}@{self.hostname}:{display_dir}$ "
+
+        home_dir = os.path.expanduser("~")
+        if self.current_dir.startswith(home_dir):
+            display_dir = "~" + self.current_dir[len(home_dir):]
         else:
-            home_dir = os.path.expanduser("~")
-            if self.current_dir.startswith(home_dir):
-                display_dir = "~" + self.current_dir[len(home_dir):]
-            else:
-                display_dir = self.current_dir
-            return f"{self.username}@{self.hostname}:{display_dir}$ "
+            display_dir = self.current_dir
+        return f"{self.username}@{self.hostname}:{display_dir}$ "
 
     def parse_input(self, user_input):
         """Парсит ввод пользователя на команду и аргументы"""
@@ -69,7 +69,7 @@ class UnixShellEmulator:
 
             for name, item_type in items:
                 if item_type == "directory":
-                    print(f"\033[94m{name}/\033[0m")
+                    print(f"\033[93m{name}/\033[0m")
                 else:
                     print(name)
         else:
@@ -109,41 +109,41 @@ class UnixShellEmulator:
 
             if not self.vfs.change_directory(path):
                 print(f"cd: {path}: Нет такого файла или каталога")
+            return
+        if not args:
+            new_dir = os.path.expanduser("~")
+            self.current_dir = new_dir
+            os.chdir(new_dir)
+            return
+
+        target = args[0]
+
+        if target == "~":
+            new_dir = os.path.expanduser("~")
+        elif target.startswith("~/"):
+            new_dir = os.path.expanduser("~") + target[1:]
         else:
-            if not args:
-                new_dir = os.path.expanduser("~")
-                self.current_dir = new_dir
-                os.chdir(new_dir)
+            if os.path.isabs(target):
+                new_dir = target
+            else:
+                new_dir = os.path.join(self.current_dir, target)
+
+        try:
+            new_dir = os.path.abspath(new_dir)
+
+            if not os.path.exists(new_dir):
+                print(f"cd: {target}: Нет такого файла или каталога")
                 return
 
-            target = args[0]
+            if not os.path.isdir(new_dir):
+                print(f"cd: {target}: Не является каталогом")
+                return
 
-            if target == "~":
-                new_dir = os.path.expanduser("~")
-            elif target.startswith("~/"):
-                new_dir = os.path.expanduser("~") + target[1:]
-            else:
-                if os.path.isabs(target):
-                    new_dir = target
-                else:
-                    new_dir = os.path.join(self.current_dir, target)
+            self.current_dir = new_dir
+            os.chdir(new_dir)
 
-            try:
-                new_dir = os.path.abspath(new_dir)
-
-                if not os.path.exists(new_dir):
-                    print(f"cd: {target}: Нет такого файла или каталога")
-                    return
-
-                if not os.path.isdir(new_dir):
-                    print(f"cd: {target}: Не является каталогом")
-                    return
-
-                self.current_dir = new_dir
-                os.chdir(new_dir)
-
-            except Exception as e:
-                print(f"cd: ошибка: {e}")
+        except Exception as e:
+            print(f"cd: ошибка: {e}")
 
     def cmd_pwd(self, args):
         """Команда pwd - вывод текущей директории"""
@@ -226,21 +226,19 @@ class UnixShellEmulator:
         print("Выполнение стартового скрипта:")
         print("-" * 50)
 
-        for com in self.startup_script:
-            print(f"{self.get_prompt()}{com}")
-            command, args = self.parse_input(com)
+        try:
+            for com in self.startup_script:
+                print(f"{self.get_prompt()}\033[92m{com}\033[0m")
+                command, args = self.parse_input(com)
 
-            if command is None:
-                continue
+                if command is None:
+                    continue
 
-            self.execute_command(command, args)
-
-            if command == 'exit':
-                break
-
-        print("-" * 50)
-        print("Стартовый скрипт выполнен")
-        print()
+                self.execute_command(command, args)
+        finally:
+            print("-" * 50)
+            print("Стартовый скрипт выполнен")
+            print()
 
     def run(self):
         """Основной цикл REPL (Read-Eval-Print Loop)"""
@@ -252,7 +250,6 @@ class UnixShellEmulator:
 
         if self.startup_script:
             print(f"Выполняется стартовый скрипт с {len(self.startup_script)} командами")
-
         print("Доступные команды: ls, cd, pwd, echo, whoami, hostname, vfs, cat, exit")
         print("Для выхода введите 'exit'")
         print("-" * 50)
@@ -275,4 +272,3 @@ class UnixShellEmulator:
             except EOFError:
                 print("\nВыход из эмулятора")
                 break
-
