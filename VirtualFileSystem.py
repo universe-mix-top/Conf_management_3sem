@@ -1,0 +1,196 @@
+import base64
+import os
+import zipfile
+
+
+class VirtualFileSystem:
+    def __init__(self, vfs_path=None):
+        self.vfs_path = vfs_path
+        self.filesystem = {}
+        self.current_vfs_dir = "/"
+
+        if vfs_path and os.path.exists(vfs_path):
+            self.load_vfs(vfs_path)
+        else:
+            # Создаем минимальную VFS по умолчанию
+            self.filesystem = {
+                "/": {
+                    "type": "directory",
+                    "content": {
+                        "home": {
+                            "type": "directory",
+                            "content": {
+                                "user": {
+                                    "type": "directory",
+                                    "content": {
+                                        "documents": {
+                                            "type": "directory",
+                                            "content": {
+                                                "readme.txt": {
+                                                    "type": "file",
+                                                    "content": "Добро пожаловать в VFS!\nЭто тестовый файл."
+                                                }
+                                            }
+                                        },
+                                        "file1.txt": {
+                                            "type": "file",
+                                            "content": "Содержимое file1.txt"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "etc": {
+                            "type": "directory",
+                            "content": {
+                                "config.conf": {
+                                    "type": "file",
+                                    "content": "config_value=12345"
+                                }
+                            }
+                        },
+                        "tmp": {"type": "directory", "content": {}},
+                        "bin": {
+                            "type": "directory",
+                            "content": {
+                                "sh": {"type": "file", "content": "#!/bin/sh\necho 'shell'"},
+                                "ls": {"type": "file", "content": "#!/bin/sh\necho 'listing files'"}
+                            }
+                        }
+                    }
+                }
+            }
+
+    def load_vfs(self, vfs_path):
+        """Загружает VFS из ZIP-архива"""
+        try:
+            if not zipfile.is_zipfile(vfs_path):
+                raise ValueError("Файл не является ZIP-архивом")
+
+            with zipfile.ZipFile(vfs_path, 'r') as zip_ref:
+                self.filesystem = {"/": {"type": "directory", "content": {}}}
+
+                for file_info in zip_ref.filelist:
+                    path_parts = file_info.filename.split('/')
+                    current_dir = self.filesystem["/"]["content"]
+
+                    # Строим структуру директорий
+                    for i, part in enumerate(path_parts):
+                        if i == len(path_parts) - 1:  # Файл
+                            if part:  # Не пустое имя файла
+                                with zip_ref.open(file_info.filename) as f:
+                                    content = f.read()
+                                    # Пытаемся декодировать как текст, иначе оставляем бинарным
+                                    try:
+                                        content = content.decode('utf-8')
+                                    except UnicodeDecodeError:
+                                        content = base64.b64encode(content).decode('utf-8')
+
+                                current_dir[part] = {
+                                    "type": "file",
+                                    "content": content
+                                }
+                        else:  # Директория
+                            if part not in current_dir:
+                                current_dir[part] = {
+                                    "type": "directory",
+                                    "content": {}
+                                }
+                            current_dir = current_dir[part]["content"]
+
+                print(f"VFS успешно загружена из {vfs_path}")
+
+        except Exception as e:
+            print(f"Ошибка загрузки VFS: {e}")
+            # Создаем минимальную VFS при ошибке
+            self.filesystem = {
+                "/": {
+                    "type": "directory",
+                    "content": {
+                        "error.txt": {
+                            "type": "file",
+                            "content": f"Ошибка загрузки VFS: {e}"
+                        }
+                    }
+                }
+            }
+
+    def resolve_path(self, path):
+        """Разрешает путь в VFS"""
+        if path.startswith("/"):
+            current_dir = self.filesystem["/"]["content"]
+            path_parts = path[1:].split("/")
+        else:
+            current_dir = self.get_current_dir_content()
+            path_parts = path.split("/")
+
+        for part in path_parts:
+            if not part or part == ".":
+                continue
+            elif part == "..":
+                # Для простоты возвращаемся к корню
+                current_dir = self.filesystem["/"]["content"]
+            else:
+                if part in current_dir and current_dir[part]["type"] == "directory":
+                    current_dir = current_dir[part]["content"]
+                else:
+                    return None  # Путь не найден
+
+        return current_dir
+
+    def get_current_dir_content(self):
+        """Возвращает содержимое текущей директории VFS"""
+        return self.resolve_path(self.current_vfs_dir)
+
+    def list_directory(self, path="."):
+        """Список содержимого директории в VFS"""
+        if path == ".":
+            dir_content = self.get_current_dir_content()
+        else:
+            dir_content = self.resolve_path(path)
+
+        if dir_content is None:
+            return None
+
+        items = []
+        for name, info in dir_content.items():
+            items.append((name, info["type"]))
+        return items
+
+    def change_directory(self, path):
+        """Смена директории в VFS"""
+        if path == "/":
+            self.current_vfs_dir = "/"
+            return True
+        elif path.startswith("/"):
+            new_dir = self.resolve_path(path)
+        else:
+            new_path = os.path.join(self.current_vfs_dir, path).replace("\\", "/")
+            new_dir = self.resolve_path(new_path)
+
+        if new_dir is not None:
+            # Сохраняем нормализованный путь
+            if path.startswith("/"):
+                self.current_vfs_dir = path
+            else:
+                self.current_vfs_dir = os.path.normpath(
+                    os.path.join(self.current_vfs_dir, path)
+                ).replace("\\", "/")
+            return True
+        return False
+
+    def read_file(self, path):
+        """Чтение файла из VFS"""
+        if path.startswith("/"):
+            dir_path = "/".join(path.split("/")[:-1])
+            filename = path.split("/")[-1]
+            dir_content = self.resolve_path(dir_path)
+        else:
+            dir_path = os.path.join(self.current_vfs_dir, os.path.dirname(path)).replace("\\", "/")
+            filename = os.path.basename(path)
+            dir_content = self.resolve_path(dir_path)
+
+        if dir_content and filename in dir_content and dir_content[filename]["type"] == "file":
+            return dir_content[filename]["content"]
+        return None
+
