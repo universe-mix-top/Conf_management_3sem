@@ -1,0 +1,21 @@
+echo Начало теста
+whoami
+hostname
+pwd
+ls
+vfs on
+pwd
+ls
+touch test1.txt test2.txt
+ls
+cat readme.txt
+mkdir test_dir
+cd test_dir
+pwd
+touch file3.txt
+ls
+cd ..
+rm test1.txt
+ls
+vfs off
+exit

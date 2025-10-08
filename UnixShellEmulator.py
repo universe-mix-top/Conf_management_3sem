@@ -1,6 +1,8 @@
 import os
 import socket
 
+from IPython.core.display_functions import display
+
 from VirtualFileSystem import VirtualFileSystem
 
 
@@ -26,6 +28,8 @@ class UnixShellEmulator:
             'hostname': self.cmd_hostname,
             'vfs': self.cmd_vfs,
             'cat': self.cmd_cat,
+            'touch': self.cmd_touch,
+            'rm': self.cmd_rm,
         }
 
     def get_prompt(self):
@@ -110,12 +114,12 @@ class UnixShellEmulator:
             if not self.vfs.change_directory(path):
                 print(f"cd: {path}: Нет такого файла или каталога")
             return
+
         if not args:
             new_dir = os.path.expanduser("~")
             self.current_dir = new_dir
             os.chdir(new_dir)
             return
-
         target = args[0]
 
         if target == "~":
@@ -209,20 +213,59 @@ class UnixShellEmulator:
             except Exception as e:
                 print(f"cat: ошибка: {e}")
 
+    def cmd_touch(self, args):
+        """Создает новые файлы или обновляет время модификации существующих"""
+        if not args:
+            print("Использование: touch <файл1> [-d(--display) - вывод даты создания и модификации]")
+            return
+
+        if not self.in_vfs_mode:
+            print("touch: команда доступна только в режиме VFS")
+            return
+
+        display_time = '-d' in args or '--display' in args
+
+        for path in args:
+            if path == '-d' or path == '--display':
+                continue
+            success, message = self.vfs.create_file(path, display_time=display_time)
+            if success:
+                print(f"touch: {message}: '{path}'")
+            else:
+                print(f"touch: невозможно создать '{path}': {message}")
+
+    def cmd_rm(self, args):
+        """Удаляет файлы из VFS"""
+        if not args:
+            print("Использование: rm <файл1> [файл2 ...]")
+            return
+
+        if not self.in_vfs_mode:
+            print("rm: команда доступна только в режиме VFS")
+            return
+
+        for filename in args:
+            success, message = self.vfs.remove_file(filename)
+            if success:
+                print(f"rm: {message}: '{filename}'")
+            else:
+                print(f"rm: невозможно удалить '{filename}': {message}")
+
+
     def cmd_exit(self, args):
-        """Команда exit - выход из эмулятора"""
+        """Завершает работу эмулятора"""
         print("Выход из эмулятора командной строки")
         exit(0)
 
     def execute_command(self, command, args):
-        """Выполняет команду"""
+        """Выполняет команду или сообщает об ошибке если команда не найдена"""
         if command in self.commands:
             self.commands[command](args)
         else:
-            print(f"Команда не найдена: {command}")
+            print(f"{command}: команда не найдена")
 
     def run_startup_script(self):
-        """Выполняет стартовый скрипт если он указан"""
+        """Выполняет команды из стартового скрипта"""
         print("Выполнение стартового скрипта:")
         print("-" * 50)
 
@@ -241,7 +284,7 @@ class UnixShellEmulator:
             print()
 
     def run(self):
-        """Основной цикл REPL (Read-Eval-Print Loop)"""
+        """Основной цикл работы эмулятора: чтение-выполнение-вывод"""
         print("Добро пожаловать в эмулятор командной строки UNIX!")
         if self.vfs_path:
             print(f"VFS путь: {self.vfs_path}")
@@ -250,7 +293,8 @@ class UnixShellEmulator:
 
         if self.startup_script:
             print(f"Выполняется стартовый скрипт с {len(self.startup_script)} командами")
-        print("Доступные команды: ls, cd, pwd, echo, whoami, hostname, vfs, cat, exit")
+
+        print("Доступные команды: ls, cd, pwd, echo, whoami, hostname, vfs, cat, touch, rm, exit")
         print("Для выхода введите 'exit'")
         print("-" * 50)
 

@@ -24,42 +24,20 @@ class VirtualFileSystem:
                         "home": {
                             "type": "directory",
                             "content": {
-                                "user": {
-                                    "type": "directory",
-                                    "content": {
-                                        "documents": {
-                                            "type": "directory",
-                                            "content": {
-                                                "readme.txt": {
-                                                    "type": "file",
-                                                    "content": "Добро пожаловать в VFS!\nЭто тестовый файл."
-                                                }
-                                            }
-                                        },
-                                        "file1.txt": {
-                                            "type": "file",
-                                            "content": "Содержимое file1.txt"
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        "etc": {
-                            "type": "directory",
-                            "content": {
-                                "config.conf": {
+                                "text.txt": {
                                     "type": "file",
-                                    "content": "config_value=12345"
+                                    "content": "Текст файла",
+                                    "created": datetime.now().isoformat(),
+                                    "modified": datetime.now().isoformat()
                                 }
-                            }
+                            },
                         },
                         "tmp": {"type": "directory", "content": {}},
-                        "bin": {
-                            "type": "directory",
-                            "content": {
-                                "sh": {"type": "file", "content": "#!/bin/sh\necho 'shell'"},
-                                "ls": {"type": "file", "content": "#!/bin/sh\necho 'listing files'"}
-                            }
+                        "readme.txt": {
+                            "type": "file",
+                            "content": "Добро пожаловать в VFS!",
+                            "created": datetime.now().isoformat(),
+                            "modified": datetime.now().isoformat()
                         }
                     }
                 }
@@ -92,7 +70,9 @@ class VirtualFileSystem:
 
                                 current_dir[part] = {
                                     "type": "file",
-                                    "content": content
+                                    "content": content,
+                                    "created": datetime.now().isoformat(),
+                                    "modified": datetime.now().isoformat()
                                 }
                         else:  # Директория
                             if part not in current_dir:
@@ -113,7 +93,9 @@ class VirtualFileSystem:
                     "content": {
                         "error.txt": {
                             "type": "file",
-                            "content": f"Ошибка загрузки VFS: {e}"
+                            "content": f"Ошибка загрузки VFS: {e}",
+                            "created": datetime.now().isoformat(),
+                            "modified": datetime.now().isoformat()
                         }
                     }
                 }
@@ -121,6 +103,7 @@ class VirtualFileSystem:
 
     def resolve_path(self, path):
         """Преобразует путь в указатель на содержимое директории в VFS"""
+        path = os.path.normpath(path).replace('\\', '/')
         if path.startswith("/"):
             current_dir = self.filesystem["/"]["content"]
             path_parts = path[1:].split("/")
@@ -201,3 +184,51 @@ class VirtualFileSystem:
         if dir_content and filename in dir_content and dir_content[filename]["type"] == "file":
             return dir_content[filename]["content"]
         return None
+
+    def create_file(self, path, content="", display_time=False):
+        """Создает новый файл в VFS (команда touch)"""
+        dir_path = os.path.dirname(path)
+        filename = os.path.basename(path)
+        dir_content = self.resolve_path(dir_path)
+
+        if dir_content is None:
+            return False, "Нет такой директории"
+
+        if filename in dir_content:
+            if dir_content[filename]["type"] == "file":
+                if display_time:
+                    return True, (f'\tВремя создания: {dir_content[filename]["created"]}\n'
+                                  f'\t\tВремя модификации: {dir_content[filename]["modified"]}')
+                # Файл существует - обновляем время модификации
+                dir_content[filename]["modified"] = datetime.now().isoformat()
+                return True, "Тайминг файла обновлен"
+            else:
+                return False, "Невозможно создать файл - директория с таким именем уже существует"
+
+        # Создаем новый файл
+        dir_content[filename] = {
+            "type": "file",
+            "content": content,
+            "created": datetime.now().isoformat(),
+            "modified": datetime.now().isoformat()
+        }
+        return True, "Файл создан"
+
+    def remove_file(self, path):
+        """Удаляет файл из VFS (команда rm)"""
+        dir_path = os.path.dirname(path)
+        filename = os.path.basename(path)
+        dir_content = self.resolve_path(dir_path)
+
+        if dir_content is None:
+            return False, "Нет такой директории"
+
+        if filename not in dir_content:
+            return False, "Нет такого файла"
+
+        if dir_content[filename]["type"] != "file":
+            return False, "Невозможно удалить - это директория"
+
+        # Удаляем файл из VFS
+        del dir_content[filename]
+        return True, "Файл удален"
