@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 import os
 import zipfile
 
@@ -120,7 +121,6 @@ class VirtualFileSystem:
 
     def resolve_path(self, path):
         """Преобразует путь в указатель на содержимое директории в VFS"""
-        path = os.path.normpath(path).replace("\\", "/")
         if path.startswith("/"):
             current_dir = self.filesystem["/"]["content"]
             path_parts = path[1:].split("/")
@@ -128,19 +128,18 @@ class VirtualFileSystem:
             current_dir = self.get_current_dir_content()
             path_parts = path.split("/")
 
+        if ".." in os.path.normpath(os.path.join(self.current_vfs_dir, path)):  # Проверка на выход из корнивой директории
+            print('Путь выходит за пределы корневой директории')
+            return None
 
         for part in path_parts:
             if not part or part == ".":
                 continue
-            elif ".." in part:
-                if ".." in os.path.normpath(os.path.join(self.current_vfs_dir, path)):  # Проверка на выход из корнивой директории
-                    print('Путь выходит за пределы корневой директории')
-                    return None
-
+            elif ".." in part and path.count('.') == len(path):
                 current_vfs_dir = self.current_vfs_dir
-                for step in range(len(path_parts) - 1): current_vfs_dir = os.path.dirname(current_vfs_dir)
-
+                for step in range(len(part) - 1): current_vfs_dir = os.path.dirname(current_vfs_dir)
                 current_dir = self.resolve_path(current_vfs_dir)
+
             elif part in current_dir and current_dir[part]["type"] == "directory":
                 current_dir = current_dir[part]["content"]
             else:
@@ -152,7 +151,7 @@ class VirtualFileSystem:
         """Возвращает содержимое текущей рабочей директории VFS"""
         return self.resolve_path(self.current_vfs_dir)
 
-    def list_directory(self, path=".") -> None|list[list[str, str], ...]:
+    def list_directory(self, path=".") -> None|list:
         """Возвращает список файлов и папок в указанной директории VFS"""
         if path == ".":
             dir_content = self.get_current_dir_content()
